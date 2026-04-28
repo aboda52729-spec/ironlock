@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 
 class IronLockForegroundService : Service() {
@@ -25,7 +26,11 @@ class IronLockForegroundService : Service() {
             if (!sessionManager.isSessionActive()) {
                 Log.d("IronLockService", "Session expired. Stopping foreground service.")
                 unregisterScreenReceiver()
-                stopForeground(true)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    stopForeground(true)
+                }
                 stopSelf()
             } else {
                 handler.postDelayed(this, 1000)
@@ -45,9 +50,15 @@ class IronLockForegroundService : Service() {
             .setContentText("Focus session is running. Do not disturb.")
             .setSmallIcon(android.R.drawable.ic_secure)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
 
-        startForeground(1, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(1, notification)
+        }
         
         // Register screen unlock receiver for Full Lock mode
         if (sessionManager.isFullLockMode()) {

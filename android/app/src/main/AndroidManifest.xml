@@ -2,6 +2,7 @@
     
     <!-- Required permissions for IronLock -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
@@ -12,6 +13,12 @@
         android:label="IronLock"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
+        
+        <!-- Required for Android 14+ (API 34) specialUse service type -->
+        <property
+            android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+            android:value="IronLock uses a foreground service to maintain focus sessions, monitor app usage, and ensure the lock screen remains active during the session duration." />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
