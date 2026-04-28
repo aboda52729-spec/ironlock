@@ -21,15 +21,17 @@ class SessionManager(context: Context) {
             jsonArray.put(app)
         }
 
+        // Use commit() instead of apply() to ensure data is written synchronously 
+        // before the ForegroundService starts and checks the session state.
         prefs.edit()
             .putLong(KEY_END_TIME, endTime)
             .putBoolean(KEY_IS_FULL_LOCK_MODE, isFullLockMode)
             .putString(KEY_SELECTED_APPS, jsonArray.toString())
-            .apply()
+            .commit() 
     }
 
     fun clearSession() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().commit()
     }
 
     fun isSessionActive(): Boolean {
@@ -46,16 +48,22 @@ class SessionManager(context: Context) {
     }
 
     fun shouldBlockApp(packageName: String): Boolean {
-        // App itself is never blocked
         if (packageName == "com.example.ironlock") return false
+        
+        // Critical Whitelist: Never block these system components to prevent soft-bricks
+        val systemWhitelist = setOf(
+            "com.android.systemui",
+            "com.android.settings", // Handled separately in Accessibility Service
+            "com.google.android.inputmethod.latin", // Gboard
+            "com.android.phone",
+            "com.android.server.telecom"
+        )
+        
+        if (systemWhitelist.contains(packageName)) return false
 
         if (isFullLockMode()) {
-            // In Full Lock Mode, block everything except basics (calculator, dialer, etc.)
-            // We can add a predefined whitelist here if needed.
-            // For now, block all by returning true.
             return true
         } else {
-            // In Specific Apps Mode, ONLY block the apps present in the list
             val selectedAppsJson = prefs.getString(KEY_SELECTED_APPS, "[]")
             try {
                 val jsonArray = JSONArray(selectedAppsJson)

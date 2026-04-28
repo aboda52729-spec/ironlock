@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'active_session_screen.dart';
+import 'package:provider/provider.dart';
+import '../main.dart';
+import '../native_lock.dart';
 import 'app_selection_sheet.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -10,398 +11,222 @@ class SetupScreen extends StatefulWidget {
   State<SetupScreen> createState() => _SetupScreenState();
 }
 
-class _SetupScreenState extends State<SetupScreen>
-    with SingleTickerProviderStateMixin {
-  int _selectedHours = 0;
-  int _selectedMinutes = 2; // Default 2 minutes for testing
-  bool _isRequestingPermission = false;
+class _SetupScreenState extends State<SetupScreen> {
+  int _selectedMinutes = 25;
   bool _isFullLockMode = true;
   List<String> _selectedApps = [];
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
 
-  final platform = const MethodChannel('ironlock_channel');
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+  void _startIronLock() async {
+    final sessionProvider = context.read<SessionProvider>();
+    
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFFE50914))),
     );
-  }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
+    bool success = await NativeLockService.startSession(
+      durationMillis: _selectedMinutes * 60 * 1000,
+      isFullLockMode: _isFullLockMode,
+      selectedApps: _selectedApps,
+    );
 
-  Future<void> _checkAndRequestPermissions() async {
-    setState(() => _isRequestingPermission = true);
-    try {
-      bool hasAccessibility = await platform.invokeMethod(
-        'checkAccessibilityPermission',
-      );
-      if (!hasAccessibility) {
-        await platform.invokeMethod('requestAccessibilityPermission');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please enable Accessibility Service for IronLock'),
-            ),
-          );
-        }
-        setState(() => _isRequestingPermission = false);
-        return;
-      }
+    if (mounted) Navigator.pop(context); // Remove loading
 
-      bool hasOverlay = await platform.invokeMethod('checkOverlayPermission');
-      if (!hasOverlay) {
-        await platform.invokeMethod('requestOverlayPermission');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please allow IronLock to draw over other apps'),
-            ),
-          );
-        }
-        setState(() => _isRequestingPermission = false);
-        return;
-      }
-
-      // For Full Lock mode, we need Device Admin permission
-      if (_isFullLockMode) {
-        bool hasDeviceAdmin = await platform.invokeMethod(
-          'isDeviceAdminEnabled',
-        );
-        if (!hasDeviceAdmin) {
-          await platform.invokeMethod('requestDeviceAdmin');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('يرجى تفعيل صلاحية مسؤول الجهاز لإطفاء الشاشة'),
-                duration: Duration(seconds: 4),
-              ),
-            );
-          }
-          setState(() => _isRequestingPermission = false);
-          return;
-        }
-      }
-
-      // All permissions are ok, let's start the session
-      _startSession();
-    } catch (e) {
-      debugPrint("Failed to get permissions: $e");
-    }
-    setState(() => _isRequestingPermission = false);
-  }
-
-  Future<void> _startSession() async {
-    int totalMillis =
-        (_selectedHours * 60 * 60 * 1000) + (_selectedMinutes * 60 * 1000);
-    if (totalMillis <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a valid duration!')),
-      );
-      return;
-    }
-
-    if (!_isFullLockMode && _selectedApps.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one app to lock!'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      await platform.invokeMethod('startSession', {
-        'durationMillis': totalMillis,
-        'isFullLockMode': _isFullLockMode,
-        'selectedApps': _selectedApps,
-      });
-
+    if (success) {
+      await sessionProvider.checkStatus();
+    } else {
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => ActiveSessionScreen(remainingMilli: totalMillis),
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("فشل بدء الجلسة. تأكد من منح كافة الصلاحيات.")),
         );
       }
-    } catch (e) {
-      debugPrint("Failed to start session: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F0000), Color(0xFF1C0000)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          bottom: true,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 24.0,
-              right: 24.0,
-              top: 48.0,
-              bottom: MediaQuery.of(context).padding.bottom + 16.0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(
-                  Icons.lock_outline,
-                  size: 80,
-                  color: Color(0xFFE50914),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'IRONLOCK',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 8,
-                    color: Colors.white,
-                  ),
-                ),
-                const Text(
-                  'NO ESCAPE',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w300,
-                    letterSpacing: 10,
-                    color: Colors.white54,
-                  ),
-                ),
-                const Spacer(),
-                const Text(
-                  'LOCK MODE',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                    color: Colors.white70,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildModeSelector(),
-                const SizedBox(height: 32),
-                const Text(
-                  'SELECT DURATION',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                    color: Colors.white70,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildTimeSelector(
-                      label: 'HOURS',
-                      value: _selectedHours,
-                      onIncrease: () => setState(() => _selectedHours++),
-                      onDecrease: () => setState(() {
-                        if (_selectedHours > 0) _selectedHours--;
-                      }),
-                    ),
-                    const SizedBox(width: 32),
-                    _buildTimeSelector(
-                      label: 'MINS',
-                      value: _selectedMinutes,
-                      onIncrease: () => setState(() {
-                        if (_selectedMinutes < 59) _selectedMinutes++;
-                      }),
-                      onDecrease: () => setState(() {
-                        if (_selectedMinutes > 0) _selectedMinutes--;
-                      }),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Text(
-                    'WARNING: ONCE STARTED, YOU CANNOT CANCEL OR UNINSTALL UNTIL TIME IS UP.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFE50914),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ScaleTransition(
-                  scale: _pulseAnimation,
-                  child: GestureDetector(
-                    onTap: _isRequestingPermission
-                        ? null
-                        : _checkAndRequestPermissions,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE50914),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(
-                              0xFFE50914,
-                            ).withValues(alpha: 0.5),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: const Text(
-                        'START LOCKDOWN',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+      appBar: AppBar(
+        title: const Text("إعداد القفل الحديدي", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle("مدة التركيز (بالدقائق)"),
+            const SizedBox(height: 16),
+            _buildTimerSelector(),
+            const SizedBox(height: 32),
+            _buildSectionTitle("وضع القفل"),
+            const SizedBox(height: 16),
+            _buildLockModeSelector(),
+            const SizedBox(height: 32),
+            if (!_isFullLockMode) ...[
+              _buildSectionTitle("التطبيقات المحظورة"),
+              const SizedBox(height: 16),
+              _buildAppSelector(),
+              const SizedBox(height: 32),
+            ],
+            const SizedBox(height: 20),
+            _buildStartButton(),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildModeSelector() {
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500),
+    );
+  }
+
+  Widget _buildTimerSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F1F1F),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: _selectedMinutes,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF1F1F1F),
+          items: [5, 15, 25, 45, 60, 90, 120].map((int value) {
+            return DropdownMenuItem<int>(
+              value: value,
+              child: Text("$value دقيقة", style: const TextStyle(color: Colors.white)),
+            );
+          }).toList(),
+          onChanged: (val) => setState(() => _selectedMinutes = val!),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLockModeSelector() {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ChoiceChip(
-              label: const Text('FULL LOCK'),
-              selected: _isFullLockMode,
-              selectedColor: const Color(0xFFE50914),
-              backgroundColor: Colors.white10,
-              labelStyle: TextStyle(
-                color: _isFullLockMode ? Colors.white : Colors.white54,
-                fontWeight: FontWeight.bold,
-              ),
-              onSelected: (val) => setState(() => _isFullLockMode = true),
-            ),
-            const SizedBox(width: 16),
-            ChoiceChip(
-              label: const Text('SPECIFIC APPS'),
-              selected: !_isFullLockMode,
-              selectedColor: const Color(0xFFE50914),
-              backgroundColor: Colors.white10,
-              labelStyle: TextStyle(
-                color: !_isFullLockMode ? Colors.white : Colors.white54,
-                fontWeight: FontWeight.bold,
-              ),
-              onSelected: (val) => setState(() => _isFullLockMode = false),
-            ),
-          ],
+        _buildModeCard(
+          title: "قفل كامل للرأس (Full Lock)",
+          subtitle: "يتم قفل الشاشة تماماً ومنع الوصول لأي شيء عدا الطوارئ.",
+          icon: Icons.security_rounded,
+          isActive: _isFullLockMode,
+          onTap: () => setState(() => _isFullLockMode = true),
         ),
-        if (!_isFullLockMode) ...[
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final result = await showModalBottomSheet<List<String>>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => Padding(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 40,
-                  ),
-                  child: AppSelectionSheet(initialSelectedApps: _selectedApps),
-                ),
-              );
-              if (result != null) {
-                setState(() => _selectedApps = result);
-              }
-            },
-            icon: const Icon(Icons.apps, color: Colors.white),
-            label: Text(
-              _selectedApps.isEmpty
-                  ? 'Select Apps to Lock'
-                  : '${_selectedApps.length} Apps Selected',
-              style: const TextStyle(color: Colors.white),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFFE50914)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
-        ],
+        const SizedBox(height: 12),
+        _buildModeCard(
+          title: "قفل تطبيقات محددة",
+          subtitle: "يمكنك استخدام الهاتف ولكن سيتم منع التطبيقات التي تختارها.",
+          icon: Icons.app_blocking_rounded,
+          isActive: !_isFullLockMode,
+          onTap: () => setState(() => _isFullLockMode = false),
+        ),
       ],
     );
   }
 
-  Widget _buildTimeSelector({
-    required String label,
-    required int value,
-    required VoidCallback onIncrease,
-    required VoidCallback onDecrease,
+  Widget _buildModeCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
   }) {
-    return Column(
-      children: [
-        IconButton(
-          onPressed: onIncrease,
-          icon: const Icon(
-            Icons.keyboard_arrow_up,
-            color: Colors.white54,
-            size: 36,
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFE50914).withOpacity(0.1) : const Color(0xFF1F1F1F),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? const Color(0xFFE50914) : Colors.transparent,
+            width: 2,
           ),
         ),
-        Text(
-          value.toString().padLeft(2, '0'),
-          style: const TextStyle(
-            fontSize: 48,
-            fontWeight: FontWeight.w200,
-            color: Colors.white,
-          ),
+        child: Row(
+          children: [
+            Icon(icon, color: isActive ? const Color(0xFFE50914) : Colors.grey, size: 32),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
         ),
-        IconButton(
-          onPressed: onDecrease,
-          icon: const Icon(
-            Icons.keyboard_arrow_down,
-            color: Colors.white54,
-            size: 36,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            letterSpacing: 2,
-            color: Colors.white38,
-          ),
-        ),
-      ],
+      ),
     );
+  }
+
+  Widget _buildAppSelector() {
+    return InkWell(
+      onTap: () async {
+        final apps = await showModalBottomSheet<List<String>>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: const Color(0xFF0D0D0D),
+          builder: (context) => AppSelectionSheet(initialSelection: _selectedApps),
+        );
+        if (apps != null) setState(() => _selectedApps = apps);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1F1F1F),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _selectedApps.isEmpty ? "اختر التطبيقات" : "تم اختيار ${_selectedApps.length} تطبيق",
+              style: const TextStyle(color: Colors.white),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStartButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _startIronLock,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFE50914),
+          shape: RoundedRectangleManager.circular(12),
+        ),
+        child: const Text(
+          "تفعيل القفل الحديدي",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+// Helper class since original code might have a typo
+class RoundedRectangleManager {
+  static RoundedRectangleBorder circular(double radius) {
+    return RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
   }
 }

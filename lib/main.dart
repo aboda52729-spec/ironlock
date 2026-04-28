@@ -1,67 +1,65 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'screens/permissions_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/active_session_screen.dart';
+import 'native_lock.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+// Simple State Management for Session
+class SessionProvider with ChangeNotifier {
+  int _remainingMilli = 0;
+  bool _isChecking = true;
+  bool _allPermissionsGranted = false;
 
-  // Check if a session is already active via MethodChannel to jump straight to ActiveSessionScreen
-  const platform = MethodChannel('ironlock_channel');
-  int remainingMilli = 0;
-  bool allPermissionsGranted = false;
+  int get remainingMilli => _remainingMilli;
+  bool get isChecking => _isChecking;
+  bool get allPermissionsGranted => _allPermissionsGranted;
 
-  try {
-    remainingMilli = await platform.invokeMethod('isSessionActive');
-  } catch (e) {
-    debugPrint("Error checking session: $e");
-  }
+  Future<void> checkStatus() async {
+    if (!Platform.isAndroid) {
+      _isChecking = false;
+      notifyListeners();
+      return;
+    }
 
-  // Check all permissions to decide the starting screen
-  if (remainingMilli <= 0) {
     try {
-      final hasAccessibility =
-          await platform.invokeMethod('checkAccessibilityPermission') ?? false;
-      final hasOverlay =
-          await platform.invokeMethod('checkOverlayPermission') ?? false;
-      final hasDeviceAdmin =
-          await platform.invokeMethod('isDeviceAdminEnabled') ?? false;
-      allPermissionsGranted = hasAccessibility && hasOverlay && hasDeviceAdmin;
+      _remainingMilli = await NativeLockService.isSessionActive();
+      if (_remainingMilli <= 0) {
+        final hasAccessibility = await NativeLockService.checkAccessibilityPermission();
+        final hasOverlay = await NativeLockService.checkOverlayPermission();
+        final hasDeviceAdmin = await NativeLockService.isDeviceAdminEnabled();
+        _allPermissionsGranted = hasAccessibility && hasOverlay && hasDeviceAdmin;
+      }
     } catch (e) {
-      debugPrint("Error checking permissions: $e");
+      debugPrint("Error checking status: $e");
+    } finally {
+      _isChecking = false;
+      notifyListeners();
     }
   }
 
+  void updateRemainingTime(int time) {
+    _remainingMilli = time;
+    notifyListeners();
+  }
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    IronLockApp(
-      initialRemainingTime: remainingMilli,
-      allPermissionsGranted: allPermissionsGranted,
+    ChangeNotifierProvider(
+      create: (_) => SessionProvider()..checkStatus(),
+      child: const IronLockApp(),
     ),
   );
 }
 
 class IronLockApp extends StatelessWidget {
-  final int initialRemainingTime;
-  final bool allPermissionsGranted;
-
-  const IronLockApp({
-    super.key,
-    required this.initialRemainingTime,
-    required this.allPermissionsGranted,
-  });
+  const IronLockApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    Widget home;
-    if (initialRemainingTime > 0) {
-      home = ActiveSessionScreen(remainingMilli: initialRemainingTime);
-    } else if (allPermissionsGranted) {
-      home = const SetupScreen();
-    } else {
-      home = const PermissionsScreen();
-    }
-
     return MaterialApp(
       title: 'IronLock - No Escape',
       debugShowCheckedModeBanner: false,
@@ -75,7 +73,33 @@ class IronLockApp extends StatelessWidget {
         ),
         fontFamily: 'Roboto',
       ),
-      home: home,
+      home: Consumer<SessionProvider>(
+        builder: (context, session, _) {
+          if (session.isChecking) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: Color(0xFFE50914)),
+              ),
+            );
+          }
+
+          if (!Platform.isAndroid) {
+            return const Scaffold(
+              body: Center(
+                child: Text("هذا التطبيق مصمم حالياً لنظام أندرويد فقط."),
+              ),
+            );
+          }
+
+          if (session.remainingMilli > 0) {
+            return ActiveSessionScreen(remainingMilli: session.remainingMilli);
+          } else if (session.allPermissionsGranted) {
+            return const SetupScreen();
+          } else {
+            return const PermissionsScreen();
+          }
+        },
+      ),
     );
   }
 }

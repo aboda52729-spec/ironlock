@@ -13,6 +13,16 @@ import android.os.Build
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "ironlock_channel"
 
+    override fun onResume() {
+        super.onResume()
+        val sessionManager = SessionManager(this)
+        if (sessionManager.isSessionActive()) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         

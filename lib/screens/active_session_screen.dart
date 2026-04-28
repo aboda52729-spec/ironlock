@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'setup_screen.dart';
+import 'package:provider/provider.dart';
+import '../main.dart';
 
 class ActiveSessionScreen extends StatefulWidget {
   final int remainingMilli;
-
   const ActiveSessionScreen({super.key, required this.remainingMilli});
 
   @override
@@ -12,145 +12,110 @@ class ActiveSessionScreen extends StatefulWidget {
 }
 
 class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
-  late int _remaining;
-  Timer? _timer;
+  late Timer _timer;
+  int _currentMilli = 0;
 
   @override
   void initState() {
     super.initState();
-    _remaining = widget.remainingMilli;
-    _startCountdown();
+    _currentMilli = widget.remainingMilli;
+    _startTimer();
   }
 
-  void _startCountdown() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (_remaining <= 0) {
-        timer.cancel();
-        // Allow exiting when timer is up
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const SetupScreen()),
-          );
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_currentMilli <= 0) {
+          _timer.cancel();
+          // Notify provider to refresh status
+          context.read<SessionProvider>().checkStatus();
+        } else {
+          _currentMilli -= 1000;
         }
-      } else {
-        setState(() {
-          _remaining -= 1000;
-        });
-      }
+      });
     });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _timer.cancel();
     super.dispose();
   }
 
-  String _formatDuration(int millis) {
-    if (millis <= 0) return "00:00:00";
-    Duration duration = Duration(milliseconds: millis);
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+  String _formatTime(int milli) {
+    if (milli <= 0) return "00:00:00";
+    Duration duration = Duration(milliseconds: milli);
+    String hours = duration.inHours.toString().padLeft(2, '0');
+    String minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+    String seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return "$hours:$minutes:$seconds";
   }
 
   @override
   Widget build(BuildContext context) {
-    // PopScope prevents the user from using the physical back button
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF1A0000), Color(0xFF000000)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1A0000), Color(0xFF0D0D0D)],
           ),
-          child: SafeArea(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Color(0xFFE50914),
-                    size: 100,
-                  ),
-                  const SizedBox(height: 40),
-                  const Text(
-                    'POINT OF NO RETURN',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 4,
-                      color: Color(0xFFE50914),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 32.0),
-                    child: Text(
-                      'Your device is now locked down. Only whitelisted applications are allowed. '
-                      'Restarting your device will not bypass this screen.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white54,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 60),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 48,
-                      vertical: 24,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: const Color(0xFFE50914).withValues(alpha: 0.3),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFE50914).withValues(alpha: 0.1),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'TIME REMAINING',
-                          style: TextStyle(
-                            fontSize: 12,
-                            letterSpacing: 3,
-                            color: Colors.white38,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _formatDuration(_remaining),
-                          style: const TextStyle(
-                            fontSize: 56,
-                            fontWeight: FontWeight.w200,
-                            letterSpacing: 2,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.lock_outline_rounded,
+              size: 100,
+              color: Color(0xFFE50914),
+            ),
+            const SizedBox(height: 40),
+            const Text(
+              "الوقت المتبقي للحرية",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              _formatTime(_currentMilli),
+              style: const TextStyle(
+                color: Color(0xFFE50914),
+                fontSize: 64,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w900,
+                shadows: [
+                  Shadow(
+                    color: Colors.red,
+                    blurRadius: 20,
+                  )
                 ],
               ),
             ),
-          ),
+            const SizedBox(height: 60),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                "القفل الحديدي مفعّل. لا يمكنك الخروج حتى ينتهي العداد. استغل وقتك في العمل أو الدراسة.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE50914)),
+              strokeWidth: 2,
+            ),
+          ],
         ),
       ),
     );
