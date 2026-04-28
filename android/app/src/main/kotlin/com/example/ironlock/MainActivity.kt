@@ -141,32 +141,24 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun checkAccessibilityPermission(): Boolean {
-        var accessibilityEnabled = 0
-        val service = packageName + "/" + IronLockAccessibilityService::class.java.canonicalName
-        try {
-            accessibilityEnabled = Settings.Secure.getInt(
-                applicationContext.contentResolver,
-                Settings.Secure.ACCESSIBILITY_ENABLED
-            )
-        } catch (e: Settings.SettingNotFoundException) {
-            e.printStackTrace()
-        }
-        val stringColonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
-        if (accessibilityEnabled == 1) {
-            val settingValue = Settings.Secure.getString(
-                applicationContext.contentResolver,
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-            )
-            if (settingValue != null) {
-                stringColonSplitter.setString(settingValue)
-                while (stringColonSplitter.hasNext()) {
-                    val accessibilityService = stringColonSplitter.next()
-                    if (accessibilityService.equals(service, ignoreCase = true)) {
-                        return true
-                    }
-                }
+        val serviceName = ComponentName(this, IronLockAccessibilityService::class.java).flattenToString()
+        val settingValue = Settings.Secure.getString(
+            applicationContext.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        )
+        
+        if (settingValue == null) return false
+        
+        val splitter = android.text.TextUtils.SimpleStringSplitter(':')
+        splitter.setString(settingValue)
+        
+        while (splitter.hasNext()) {
+            val component = splitter.next()
+            if (component.equals(serviceName, ignoreCase = true)) {
+                return true
             }
         }
         return false
     }
 }
+
