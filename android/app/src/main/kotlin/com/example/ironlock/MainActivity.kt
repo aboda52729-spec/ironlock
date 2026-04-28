@@ -29,12 +29,13 @@ class MainActivity: FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "startSession" -> {
-                    val durationMillis = call.argument<Int>("durationMillis")?.toLong() ?: 0L
+                    val durationMillis = call.argument<Long>("durationMillis") ?: 0L
                     val isFullLockMode = call.argument<Boolean>("isFullLockMode") ?: true
-                    val selectedApps = call.argument<List<String>>("selectedApps") ?: listOf()
-                    
+                    val selectedApps = call.argument<List<String>>("selectedApps") ?: emptyList()
+                    val emergencyContact = call.argument<String>("emergencyContact")
+
                     val sessionManager = SessionManager(this)
-                    sessionManager.startSession(durationMillis, isFullLockMode, selectedApps)
+                    sessionManager.startSession(durationMillis, isFullLockMode, selectedApps, emergencyContact)
                     
                     val serviceIntent = Intent(this, IronLockForegroundService::class.java)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -43,12 +44,19 @@ class MainActivity: FlutterActivity() {
                         startService(serviceIntent)
                     }
                     
-                    // If full lock mode, immediately lock the screen
                     if (isFullLockMode) {
                         lockScreenNow()
                     }
                     
                     result.success(true)
+                }
+                "getEmergencyContact" -> {
+                    val sessionManager = SessionManager(this)
+                    result.success(sessionManager.getEmergencyContact())
+                }
+                "makeEmergencyCall" -> {
+                   makeEmergencyCall()
+                   result.success(null)
                 }
                 "checkAccessibilityPermission" -> {
                     val enabled = checkAccessibilityPermission()
@@ -77,8 +85,7 @@ class MainActivity: FlutterActivity() {
                 "isSessionActive" -> {
                     val sessionManager = SessionManager(this)
                     if (sessionManager.isSessionActive()) {
-                        val remaining = sessionManager.getEndTime() - System.currentTimeMillis()
-                        result.success(remaining)
+                        result.success(sessionManager.getRemainingTime())
                     } else {
                         result.success(0L)
                     }

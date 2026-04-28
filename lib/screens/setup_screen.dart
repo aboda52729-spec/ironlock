@@ -12,9 +12,16 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
+  final TextEditingController _emergencyContactController = TextEditingController();
   int _selectedMinutes = 25;
   bool _isFullLockMode = true;
   List<String> _selectedApps = [];
+
+  @override
+  void dispose() {
+    _emergencyContactController.dispose();
+    super.dispose();
+  }
 
   void _startIronLock() async {
     final sessionProvider = context.read<SessionProvider>();
@@ -30,6 +37,9 @@ class _SetupScreenState extends State<SetupScreen> {
       durationMillis: _selectedMinutes * 60 * 1000,
       isFullLockMode: _isFullLockMode,
       selectedApps: _selectedApps,
+      emergencyContact: _emergencyContactController.text.trim().isNotEmpty 
+          ? _emergencyContactController.text.trim() 
+          : null,
     );
 
     if (mounted) Navigator.pop(context); // Remove loading
@@ -63,6 +73,10 @@ class _SetupScreenState extends State<SetupScreen> {
             const SizedBox(height: 16),
             _buildTimerSelector(),
             const SizedBox(height: 32),
+            _buildSectionTitle("رقم اتصال للطوارئ (اختياري)"),
+            const SizedBox(height: 12),
+            _buildEmergencyContactField(),
+            const SizedBox(height: 32),
             _buildSectionTitle("وضع القفل"),
             const SizedBox(height: 16),
             _buildLockModeSelector(),
@@ -80,6 +94,25 @@ class _SetupScreenState extends State<SetupScreen> {
       ),
     );
   }
+  
+  Widget _buildEmergencyContactField() {
+    return TextField(
+      controller: _emergencyContactController,
+      keyboardType: TextInputType.phone,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: "مثلاً: 0912345678",
+        hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+        filled: true,
+        fillColor: const Color(0xFF1F1F1F),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        prefixIcon: const Icon(Icons.emergency_rounded, color: Color(0xFFE50914), size: 20),
+      ),
+    );
+  }
 
   Widget _buildSectionTitle(String title) {
     return Text(
@@ -87,6 +120,7 @@ class _SetupScreenState extends State<SetupScreen> {
       style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500),
     );
   }
+
 
   Widget _buildTimerSelector() {
     return Container(

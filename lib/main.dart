@@ -9,10 +9,12 @@ import 'native_lock.dart';
 // Simple State Management for Session
 class SessionProvider with ChangeNotifier {
   int _remainingMilli = 0;
+  String? _emergencyContact;
   bool _isChecking = true;
   bool _allPermissionsGranted = false;
 
   int get remainingMilli => _remainingMilli;
+  String? get emergencyContact => _emergencyContact;
   bool get isChecking => _isChecking;
   bool get allPermissionsGranted => _allPermissionsGranted;
 
@@ -25,6 +27,8 @@ class SessionProvider with ChangeNotifier {
 
     try {
       _remainingMilli = await NativeLockService.isSessionActive();
+      _emergencyContact = await NativeLockService.getEmergencyContact();
+      
       if (_remainingMilli <= 0) {
         final hasAccessibility = await NativeLockService.checkAccessibilityPermission();
         final hasOverlay = await NativeLockService.checkOverlayPermission();

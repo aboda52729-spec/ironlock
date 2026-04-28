@@ -23,21 +23,41 @@ class IronLockAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
+        if (!sessionManager.isSessionActive()) {
+            overlayController.hide()
+            return
+        }
+
+        // Monitoring window changes & content changes for bypass attempts
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || 
             event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
             
             val packageName = event.packageName?.toString() ?: return
             
-            // Critical Check: Prevent user from entering Settings to disable Accessibility or Device Admin
-            if (sessionManager.isSessionActive()) {
-                if (packageName == "com.android.settings") {
-                    // Check if they are trying to reach our specific settings page
-                    val className = event.className?.toString() ?: ""
-                    if (className.contains("AccessibilitySettings") || className.contains("DeviceAdminSettings")) {
-                        Log.w(TAG, "User trying to bypass security. Redirecting home.")
-                        performGlobalAction(GLOBAL_ACTION_HOME)
-                        return
-                    }
+            // SYSTEM SETTINGS PROTECTION: The number one bypass vector
+            if (packageName == "com.android.settings") {
+                val className = event.className?.toString() ?: ""
+                
+                // Block access to critical system configuration during session
+                val criticalSettingsKeywords = setOf(
+                    "AccessibilitySettings", 
+                    "DeviceAdminSettings",
+                    "ManageApplications", // Apps list (to force stop)
+                    "InstalledAppDetails", // Specific App info
+                    "Date", "Time", // Date/Time settings (just in case)
+                    "Developer" // Developer options
+                )
+
+                if (criticalSettingsKeywords.any { className.contains(it) }) {
+                    Log.w(TAG, "Security violation: Attempted access to critical settings.")
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    return
+                }
+                
+                // If they are in App Info for IronLock itself, definitely block
+                if (event.text.toString().contains("ironlock", ignoreCase = true)) {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    return
                 }
             }
 
@@ -48,27 +68,28 @@ class IronLockAccessibilityService : AccessibilityService() {
     private var lastBlockedPackage: String = ""
 
     private fun checkAndBlock(packageName: String) {
+        // Defensive check: if session ended between events
         if (!sessionManager.isSessionActive()) {
-            lastBlockedPackage = ""
             overlayController.hide()
             return
         }
 
-        // Ignore our own app's events
+        // Ignore our own app
         if (packageName == "com.example.ironlock") {
             overlayController.hide()
             return
         }
 
-        // SystemUI and LockScreen handling
-        if (packageName == "com.android.systemui") {
-            // We usually don't block SystemUI to allow notifications/status bar view,
-            // but we ensure overlay doesn't cover it if we are just blocking specific apps.
+        // White-listed system components
+        val systemSafe = setOf("com.android.systemui")
+        if (systemSafe.contains(packageName)) {
+            // Usually don't block SystemUI to keep phone alive, 
+            // but we might hide overlay if specifically allowed.
             return
         }
 
         if (sessionManager.isFullLockMode()) {
-            // Emergency call exceptions
+            // Allow emergency calling
             val emergencyPackages = setOf(
                 "com.android.phone",
                 "com.android.server.telecom",
@@ -81,20 +102,13 @@ class IronLockAccessibilityService : AccessibilityService() {
                 return
             }
 
-            Log.d(TAG, "Full Lock Mode active. Enforcing...")
+            Log.d(TAG, "Full Lock: Enforcing...")
+            overlayController.show()
             
-            // Ensure screen stays locked if unlocked
-            val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-            val componentName = ComponentName(applicationContext, IronLockDeviceAdminReceiver::class.java)
-            if (dpm.isAdminActive(componentName)) {
-                // We let the ScreenUnlockReceiver handle the hard lock.
-                // Here we just show the overlay as backup.
-                overlayController.show()
-            } else {
-                overlayController.show()
-                if (packageName != "com.android.systemui") {
-                   performGlobalAction(GLOBAL_ACTION_HOME)
-                }
+            // Force the user home if they try to navigate away in Full Lock
+            if (packageName != "com.android.systemui" && packageName != lastBlockedPackage) {
+                lastBlockedPackage = packageName
+                performGlobalAction(GLOBAL_ACTION_HOME)
             }
             return
         }
@@ -106,24 +120,19 @@ class IronLockAccessibilityService : AccessibilityService() {
             
             if (packageName != lastBlockedPackage) {
                 lastBlockedPackage = packageName
-                // Instead of just HOME, we can also show a "Blocked" screen
                 performGlobalAction(GLOBAL_ACTION_HOME)
             }
         } else {
-            // Allow this app
-            Log.d(TAG, "App allowed: $packageName")
-            lastBlockedPackage = ""
             overlayController.hide()
+            lastBlockedPackage = ""
         }
     }
 
-    override fun onInterrupt() {
-        Log.d(TAG, "Accessibility Service Interrupted")
-        overlayController.hide()
-    }
+    override fun onInterrupt() {}
     
     override fun onDestroy() {
         super.onDestroy()
         overlayController.hide()
     }
 }
+

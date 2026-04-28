@@ -9,12 +9,14 @@ class NativeLockService {
     required int durationMillis,
     required bool isFullLockMode,
     required List<String> selectedApps,
+    String? emergencyContact,
   }) async {
     try {
       final bool success = await platform.invokeMethod('startSession', {
         'durationMillis': durationMillis,
         'isFullLockMode': isFullLockMode,
         'selectedApps': selectedApps,
+        'emergencyContact': emergencyContact,
       });
       return success;
     } catch (e) {
@@ -81,6 +83,23 @@ class NativeLockService {
     try {
       await platform.invokeMethod('requestOverlayPermission');
     } catch (e) {/**/}
+  }
+
+  static Future<String?> getEmergencyContact() async {
+    try {
+      final String? contact = await platform.invokeMethod('getEmergencyContact');
+      return contact;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<void> makeEmergencyCall() async {
+    try {
+      await platform.invokeMethod('makeEmergencyCall');
+    } catch (e) {
+      debugPrint("Error making emergency call: $e");
+    }
   }
 
   static Future<void> lockScreen() async {

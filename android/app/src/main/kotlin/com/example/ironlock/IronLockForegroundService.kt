@@ -21,6 +21,7 @@ class IronLockForegroundService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val checkRunnable = object : Runnable {
         override fun run() {
+            sessionManager.updateRemainingTime()
             if (!sessionManager.isSessionActive()) {
                 Log.d("IronLockService", "Session expired. Stopping foreground service.")
                 unregisterScreenReceiver()
