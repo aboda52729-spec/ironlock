@@ -8,6 +8,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # This is the official way to resolve the deprecation and move to Node 24
+
 jobs:
   build:
     runs-on: ubuntu-latest
