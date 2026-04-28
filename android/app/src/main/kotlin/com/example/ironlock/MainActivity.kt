@@ -129,6 +129,17 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    private fun makeEmergencyCall() {
+        val sessionManager = SessionManager(this)
+        val contact = sessionManager.getEmergencyContact()
+        if (contact != null) {
+            val intent = Intent(Intent.ACTION_DIAL).apply {
+                data = android.net.Uri.parse("tel:$contact")
+            }
+            startActivity(intent)
+        }
+    }
+
     private fun checkAccessibilityPermission(): Boolean {
         var accessibilityEnabled = 0
         val service = packageName + "/" + IronLockAccessibilityService::class.java.canonicalName

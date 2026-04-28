@@ -181,7 +181,7 @@ class _SetupScreenState extends State<SetupScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFE50914).withOpacity(0.1) : const Color(0xFF1F1F1F),
+          color: isActive ? const Color(0xFFE50914).withValues(alpha: 0.1) : const Color(0xFF1F1F1F),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isActive ? const Color(0xFFE50914) : Colors.transparent,

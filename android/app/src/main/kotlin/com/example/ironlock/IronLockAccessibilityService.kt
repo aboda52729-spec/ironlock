@@ -28,36 +28,50 @@ class IronLockAccessibilityService : AccessibilityService() {
             return
         }
 
-        // Monitoring window changes & content changes for bypass attempts
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || 
             event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
             
             val packageName = event.packageName?.toString() ?: return
             
-            // SYSTEM SETTINGS PROTECTION: The number one bypass vector
-            if (packageName == "com.android.settings") {
-                val className = event.className?.toString() ?: ""
-                
-                // Block access to critical system configuration during session
-                val criticalSettingsKeywords = setOf(
-                    "AccessibilitySettings", 
-                    "DeviceAdminSettings",
-                    "ManageApplications", // Apps list (to force stop)
-                    "InstalledAppDetails", // Specific App info
-                    "Date", "Time", // Date/Time settings (just in case)
-                    "Developer" // Developer options
-                )
-
-                if (criticalSettingsKeywords.any { className.contains(it) }) {
-                    Log.w(TAG, "Security violation: Attempted access to critical settings.")
+            // Critical Check: Prevent user from bypassing security
+            if (sessionManager.isSessionActive()) {
+                // 1. Block Package Installers to prevent uninstallation
+                if (packageName == "com.android.packageinstaller" || 
+                    packageName == "com.google.android.packageinstaller" ||
+                    packageName.contains("packageinstaller")) {
+                    Log.w(TAG, "User trying to uninstall app or change permissions. Blocking.")
                     performGlobalAction(GLOBAL_ACTION_HOME)
                     return
                 }
-                
-                // If they are in App Info for IronLock itself, definitely block
-                if (event.text.toString().contains("ironlock", ignoreCase = true)) {
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    return
+
+                // 2. Settings Protection
+                if (packageName == "com.android.settings") {
+                    if (sessionManager.isFullLockMode()) {
+                        Log.w(TAG, "Full Lock Mode: All Settings blocked.")
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                        return
+                    }
+
+                    val className = event.className?.toString() ?: ""
+                    val text = event.text?.toString() ?: ""
+                    
+                    // Critical Settings Pages
+                    val forbiddenClasses = setOf(
+                        "AccessibilitySettings", 
+                        "DeviceAdminSettings",
+                        "ManageApplications",
+                        "InstalledAppDetails",
+                        "AppDetailsActivity",
+                        "DevelopmentSettings",
+                        "DateTimeSettings"
+                    )
+
+                    if (forbiddenClasses.any { className.contains(it) } || 
+                        text.contains("IronLock", ignoreCase = true)) {
+                        Log.w(TAG, "Attempted access to critical settings ($className). Redirecting home.")
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                        return
+                    }
                 }
             }
 
@@ -68,28 +82,21 @@ class IronLockAccessibilityService : AccessibilityService() {
     private var lastBlockedPackage: String = ""
 
     private fun checkAndBlock(packageName: String) {
-        // Defensive check: if session ended between events
         if (!sessionManager.isSessionActive()) {
             overlayController.hide()
             return
         }
 
-        // Ignore our own app
         if (packageName == "com.example.ironlock") {
             overlayController.hide()
             return
         }
 
-        // White-listed system components
-        val systemSafe = setOf("com.android.systemui")
-        if (systemSafe.contains(packageName)) {
-            // Usually don't block SystemUI to keep phone alive, 
-            // but we might hide overlay if specifically allowed.
+        if (packageName == "com.android.systemui") {
             return
         }
 
         if (sessionManager.isFullLockMode()) {
-            // Allow emergency calling
             val emergencyPackages = setOf(
                 "com.android.phone",
                 "com.android.server.telecom",
@@ -102,10 +109,9 @@ class IronLockAccessibilityService : AccessibilityService() {
                 return
             }
 
-            Log.d(TAG, "Full Lock: Enforcing...")
+            Log.d(TAG, "Full Lock active. Showing overlay.")
             overlayController.show()
             
-            // Force the user home if they try to navigate away in Full Lock
             if (packageName != "com.android.systemui" && packageName != lastBlockedPackage) {
                 lastBlockedPackage = packageName
                 performGlobalAction(GLOBAL_ACTION_HOME)
@@ -113,7 +119,6 @@ class IronLockAccessibilityService : AccessibilityService() {
             return
         }
 
-        // ===== Specific Apps Mode =====
         if (sessionManager.shouldBlockApp(packageName)) {
             Log.d(TAG, "Blocking app: $packageName")
             overlayController.show()
@@ -123,8 +128,8 @@ class IronLockAccessibilityService : AccessibilityService() {
                 performGlobalAction(GLOBAL_ACTION_HOME)
             }
         } else {
-            overlayController.hide()
             lastBlockedPackage = ""
+            overlayController.hide()
         }
     }
 
@@ -135,4 +140,3 @@ class IronLockAccessibilityService : AccessibilityService() {
         overlayController.hide()
     }
 }
-
