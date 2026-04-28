@@ -181,7 +181,7 @@ class _SetupScreenState extends State<SetupScreen> {
           context: context,
           isScrollControlled: true,
           backgroundColor: const Color(0xFF0D0D0D),
-          builder: (context) => AppSelectionSheet(initialSelection: _selectedApps),
+          builder: (context) => AppSelectionSheet(initialSelectedApps: _selectedApps),
         );
         if (apps != null) setState(() => _selectedApps = apps);
       },
