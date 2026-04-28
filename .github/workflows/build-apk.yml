@@ -6,24 +6,27 @@ on:
       - main
     tags:
       - 'v*'
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Opting into Node.js 24 early to avoid deprecation issues
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write # Need this to create a release and upload the APK
+      contents: write
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # v4 already supports Node 24 in its latest updates
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4 # Updated from v3 to v4
         with:
           distribution: 'zulu'
-          java-version: '17' # Android builds require Java 17 now
+          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -50,4 +53,4 @@ jobs:
           name: Release ${{ github.ref_name }}
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }} # Or default GITHUB_TOKEN if PAT is not strictly needed for this repo. We use PAT_TOKEN secret to be safe and cross-repo.
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
