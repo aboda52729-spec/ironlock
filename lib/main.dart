@@ -29,12 +29,13 @@ class SessionProvider with ChangeNotifier {
       _remainingMilli = await NativeLockService.isSessionActive();
       _emergencyContact = await NativeLockService.getEmergencyContact();
       
-      if (_remainingMilli <= 0) {
-        final hasAccessibility = await NativeLockService.checkAccessibilityPermission();
-        final hasOverlay = await NativeLockService.checkOverlayPermission();
-        final hasDeviceAdmin = await NativeLockService.isDeviceAdminEnabled();
-        _allPermissionsGranted = hasAccessibility && hasOverlay && hasDeviceAdmin;
-      }
+      // Always check permissions so the app never gets stuck
+      final hasAccessibility = await NativeLockService.checkAccessibilityPermission();
+      final hasOverlay = await NativeLockService.checkOverlayPermission();
+      final hasDeviceAdmin = await NativeLockService.isDeviceAdminEnabled();
+      _allPermissionsGranted = hasAccessibility && hasOverlay && hasDeviceAdmin;
+      
+      debugPrint("IronLock Permissions: accessibility=$hasAccessibility, overlay=$hasOverlay, admin=$hasDeviceAdmin");
     } catch (e) {
       debugPrint("Error checking status: $e");
     } finally {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../native_lock.dart';
 import 'app_selection_sheet.dart';
+import 'permissions_screen.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -26,7 +27,36 @@ class _SetupScreenState extends State<SetupScreen> {
   void _startIronLock() async {
     final sessionProvider = context.read<SessionProvider>();
     
+    // Pre-flight permission check - verify ALL permissions before attempting session
+    final hasAccessibility = await NativeLockService.checkAccessibilityPermission();
+    final hasOverlay = await NativeLockService.checkOverlayPermission();
+    final hasDeviceAdmin = await NativeLockService.isDeviceAdminEnabled();
+    
+    if (!hasAccessibility || !hasOverlay || !hasDeviceAdmin) {
+      if (mounted) {
+        List<String> missing = [];
+        if (!hasAccessibility) missing.add("إمكانية الوصول");
+        if (!hasOverlay) missing.add("العرض فوق التطبيقات");
+        if (!hasDeviceAdmin) missing.add("مسؤول الجهاز");
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("الأذونات التالية غير مفعلة: ${missing.join('، ')}"),
+            backgroundColor: const Color(0xFFE50914),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        // Redirect back to permissions screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const PermissionsScreen()),
+        );
+      }
+      return;
+    }
+
     // Show loading dialog
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -49,7 +79,10 @@ class _SetupScreenState extends State<SetupScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("فشل بدء الجلسة. تأكد من منح كافة الصلاحيات.")),
+          const SnackBar(
+            content: Text("فشل بدء الجلسة. حدث خطأ داخلي."),
+            backgroundColor: Color(0xFFE50914),
+          ),
         );
       }
     }

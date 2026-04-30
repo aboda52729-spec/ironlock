@@ -28,8 +28,10 @@ class NativeLockService {
   /// Check if a session is currently active. Returns remaining time in millis.
   static Future<int> isSessionActive() async {
     try {
-      final int remaining = await platform.invokeMethod('isSessionActive');
-      return remaining;
+      final result = await platform.invokeMethod('isSessionActive');
+      if (result is int) return result;
+      if (result is num) return result.toInt();
+      return 0;
     } catch (e) {
       debugPrint("Error checking session: $e");
       return 0;

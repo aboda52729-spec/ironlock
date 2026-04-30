@@ -29,26 +29,38 @@ class MainActivity: FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "startSession" -> {
-                    val durationMillis = call.argument<Long>("durationMillis") ?: 0L
-                    val isFullLockMode = call.argument<Boolean>("isFullLockMode") ?: true
-                    val selectedApps = call.argument<List<String>>("selectedApps") ?: emptyList()
-                    val emergencyContact = call.argument<String>("emergencyContact")
+                    try {
+                        // Dart int maps to Java Integer, NOT Long. Use Number to handle both.
+                        val durationNumber = call.argument<Number>("durationMillis")
+                        val durationMillis = durationNumber?.toLong() ?: 0L
+                        val isFullLockMode = call.argument<Boolean>("isFullLockMode") ?: true
+                        val selectedApps = call.argument<List<String>>("selectedApps") ?: emptyList()
+                        val emergencyContact = call.argument<String>("emergencyContact")
 
-                    val sessionManager = SessionManager(this)
-                    sessionManager.startSession(durationMillis, isFullLockMode, selectedApps, emergencyContact)
-                    
-                    val serviceIntent = Intent(this, IronLockForegroundService::class.java)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(serviceIntent)
-                    } else {
-                        startService(serviceIntent)
+                        if (durationMillis <= 0L) {
+                            result.success(false)
+                            return@setMethodCallHandler
+                        }
+
+                        val sessionManager = SessionManager(this)
+                        sessionManager.startSession(durationMillis, isFullLockMode, selectedApps, emergencyContact)
+                        
+                        val serviceIntent = Intent(this, IronLockForegroundService::class.java)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(serviceIntent)
+                        } else {
+                            startService(serviceIntent)
+                        }
+                        
+                        if (isFullLockMode) {
+                            lockScreenNow()
+                        }
+                        
+                        result.success(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e("IronLock", "Failed to start session", e)
+                        result.success(false)
                     }
-                    
-                    if (isFullLockMode) {
-                        lockScreenNow()
-                    }
-                    
-                    result.success(true)
                 }
                 "getEmergencyContact" -> {
                     val sessionManager = SessionManager(this)
