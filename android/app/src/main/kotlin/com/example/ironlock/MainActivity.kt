@@ -9,18 +9,15 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.os.Build
-import android.util.Log
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "ironlock_channel"
-    private val TAG = "IronLockMainActivity"
 
     override fun onResume() {
         super.onResume()
         val sessionManager = SessionManager(this)
         if (sessionManager.isSessionActive()) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
-            Log.d(TAG, "Session active - FLAG_SECURE enabled")
         } else {
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         }
@@ -41,7 +38,6 @@ class MainActivity: FlutterActivity() {
                         val emergencyContact = call.argument<String>("emergencyContact")
 
                         if (durationMillis <= 0L) {
-                            Log.w(TAG, "Invalid duration: $durationMillis")
                             result.success(false)
                             return@setMethodCallHandler
                         }
@@ -60,10 +56,9 @@ class MainActivity: FlutterActivity() {
                             lockScreenNow()
                         }
                         
-                        Log.d(TAG, "Session started: duration=$durationMillis, fullLock=$isFullLockMode")
                         result.success(true)
                     } catch (e: Exception) {
-                        Log.e(TAG, "Failed to start session", e)
+                        android.util.Log.e("IronLock", "Failed to start session", e)
                         result.success(false)
                     }
                 }
@@ -125,18 +120,6 @@ class MainActivity: FlutterActivity() {
                     lockScreenNow()
                     result.success(true)
                 }
-                "getSessionInfo" -> {
-                    val sessionManager = SessionManager(this)
-                    val info = sessionManager.getSessionInfo()
-                    result.success(mapOf(
-                        "remainingTime" to info["remainingTime"] as? Long ?: 0,
-                        "isFullLockMode" to info["isFullLockMode"] as? Boolean ?: false,
-                        "emergencyContact" to info["emergencyContact"] as? String ?: "",
-                        "sessionStartTime" to info["sessionStartTime"] as? Long ?: 0,
-                        "lastUpdateTime" to info["lastUpdateTime"] as? Long ?: 0,
-                        "currentTime" to info["currentTime"] as? Long ?: 0
-                    ))
-                }
                 else -> {
                     result.notImplemented()
                 }
@@ -155,23 +138,17 @@ class MainActivity: FlutterActivity() {
         val componentName = ComponentName(this, IronLockDeviceAdminReceiver::class.java)
         if (dpm.isAdminActive(componentName)) {
             dpm.lockNow()
-            Log.d(TAG, "Screen locked successfully")
-        } else {
-            Log.w(TAG, "Cannot lock screen - Device Admin not active")
         }
     }
 
     private fun makeEmergencyCall() {
         val sessionManager = SessionManager(this)
         val contact = sessionManager.getEmergencyContact()
-        if (contact != null && contact.isNotEmpty()) {
+        if (contact != null) {
             val intent = Intent(Intent.ACTION_DIAL).apply {
                 data = android.net.Uri.parse("tel:$contact")
             }
             startActivity(intent)
-            Log.d(TAG, "Emergency call initiated to: $contact")
-        } else {
-            Log.w(TAG, "No emergency contact set")
         }
     }
 

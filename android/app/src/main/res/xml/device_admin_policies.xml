@@ -2,10 +2,5 @@
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-policies>
         <force-lock />
-        <limit-password />
-        <watch-login />
-        <disable-camera />
-        <force-reset-password />
-        <wipe-data />
     </uses-policies>
 </device-admin>
