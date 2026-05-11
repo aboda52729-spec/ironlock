@@ -1,67 +1,38 @@
-# Miscellaneous
+```
+# Compiled and build artifacts
 *.class
+*.dex
+*.so
+*.aar
+*.apk
+*.jar
+obj/
+build/
+.externalNativeBuild/
+
+# Dependencies
+.gradle/
+node_modules/
+vendor/bundle/
+Pods/
+
+# Logs and temp files
 *.log
-*.pyc
+*.tmp
 *.swp
-.DS_Store
-.atom/
-.buildlog/
-.history
-.svn/
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
+# Environment
+.env
+.env.local
+*.env.*
 
-# The Python implementation of HTTP in our tests can create these.
-__pycache__/
-
-# Local-only configuration (e.g. terminals, styling)
-.direnv/
+# Editors
 .vscode/
+.idea/
+*.iml
+*.iws
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-**/ios/Flutter/App.framework
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/flutter_export_environment.sh
-**/ios/Flutter/ids_sig
-**/ios/ServiceDefinitions.json
-**/ios/Runner/GeneratedPluginRegistrant.[mh]
-**/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
-**/android/local.properties
-**/android/Flutter/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
-**/linux/flutter/generated_plugin_registrant.cc
-**/linux/flutter/generated_plugin_registrant.h
-**/linux/flutter/generated_plugins.cmake
-**/macos/Flutter/GeneratedPluginRegistrant.swift
-**/macos/Flutter/ephemeral
-**/windows/flutter/generated_plugin_registrant.cc
-**/windows/flutter/generated_plugin_registrant.h
-**/windows/flutter/generated_plugins.cmake
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-/build/
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place separate folders for each type of build (debug, release, etc)
-/android/app/build/
-/android/app/debug/
-/android/app/profile/
-/android/app/release/
-
-# Coverage
-**/coverage/
+# OS generated files
+.DS_Store
+Thumbs.db
+```
