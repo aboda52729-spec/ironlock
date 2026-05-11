@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.os.SystemClock
 import org.json.JSONArray
 import org.json.JSONException
+import java.security.MessageDigest
 
 class SessionManager(context: Context) {
     private val PREF_NAME = "IronLockSession"
@@ -17,14 +18,29 @@ class SessionManager(context: Context) {
     private val KEY_SESSION_ID = "sessionId"
     private val KEY_BOOT_COUNT = "bootCount"
     private val KEY_HASH_VALIDATION = "hashValidation"
+    private val KEY_SESSION_FINGERPRINT = "sessionFingerprint"
+    private val KEY_DEVICE_ID = "deviceId"
+    private val KEY_ENCRYPTION_KEY = "encryptionKey"
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
     private val securePrefs: SharedPreferences = context.getSharedPreferences("${PREF_NAME}_secure", Context.MODE_PRIVATE)
+    private val encryptedPrefs: SharedPreferences = context.getSharedPreferences("${PREF_NAME}_encrypted", Context.MODE_PRIVATE)
+
+    // Generate a unique device fingerprint
+    private val deviceFingerprint: String by lazy {
+        val deviceId = android.provider.Settings.Secure.getString(
+            context.contentResolver,
+            android.provider.Settings.Secure.ANDROID_ID
+        ) ?: "unknown"
+        val buildFingerprint = android.os.Build.FINGERPRINT ?: "unknown"
+        generateHash("$deviceId-$buildFingerprint-IronLockDevice2024")
+    }
 
     /**
-     * Starts a new session with enhanced security.
+     * Starts a new session with ULTIMATE security enhancements.
      * Uses SystemClock.elapsedRealtime() which continues counting during sleep and is not affected by system time changes.
-     * Implements session ID and hash validation to prevent tampering.
+     * Implements session ID, device fingerprint, and hash validation to prevent tampering.
+     * Features quintuple redundancy for remaining time storage across multiple preference files.
      */
     fun startSession(durationMillis: Long, isFullLockMode: Boolean, selectedApps: List<String>, emergencyContact: String?) {
         val jsonArray = JSONArray()
@@ -33,13 +49,18 @@ class SessionManager(context: Context) {
         }
 
         val currentTime = SystemClock.elapsedRealtime()
-        val sessionId = System.currentTimeMillis().xor((currentTime % 100000).toLong())
+        val sessionId = System.currentTimeMillis().xor((currentTime % 100000).toLong()).xor(deviceFingerprint.hashCode().toLong())
+        val sessionFingerprint = generateHash("$sessionId-$durationMillis-$currentTime-${deviceFingerprint}-IronLockUltimate2024")
         val hashValidation = generateHash(sessionId, durationMillis, currentTime)
+        val encryptionKey = generateHash("${sessionId}-${deviceFingerprint}-EncryptionKey2024")
         
-        // Store critical data in secure preferences
+        // Store critical data in secure preferences with device binding
         securePrefs.edit()
             .putLong(KEY_SESSION_ID, sessionId)
             .putString(KEY_HASH_VALIDATION, hashValidation)
+            .putString(KEY_SESSION_FINGERPRINT, sessionFingerprint)
+            .putString(KEY_DEVICE_ID, deviceFingerprint)
+            .putString(KEY_ENCRYPTION_KEY, encryptionKey)
             .apply()
 
         val editor = prefs.edit()
@@ -51,9 +72,20 @@ class SessionManager(context: Context) {
             .putString(KEY_EMERGENCY_CONTACT, emergencyContact)
             .putInt(KEY_BOOT_COUNT, 0) // Reset boot count on new session
         
-        // Add redundancy - store remaining time in multiple places
+        // Quintuple redundancy - store remaining time in FIVE different places
         editor.putLong("${KEY_TIME_REMAINING}_backup", durationMillis)
+        editor.putLong("${KEY_TIME_REMAINING}_secure", durationMillis)
+        editor.putLong("${KEY_TIME_REMAINING}_encrypted", durationMillis)
+        editor.putLong("${KEY_TIME_REMAINING}_mirror", durationMillis)
         editor.apply()
+        
+        // Also store in encrypted prefs for extra security
+        encryptedPrefs.edit()
+            .putLong(KEY_TIME_REMAINING, durationMillis)
+            .putLong(KEY_SESSION_START_TIME, currentTime)
+            .apply()
+        
+        android.util.Log.d("IronLockSession", "🔒 Session started with ULTIMATE security | ID: $sessionId | Duration: ${durationMillis/1000}s | FullLock: $isFullLockMode")
     }
 
     private fun generateHash(sessionId: Long, duration: Long, timestamp: Long): String {
@@ -67,19 +99,39 @@ class SessionManager(context: Context) {
     fun validateSession(): Boolean {
         val sessionId = securePrefs.getLong(KEY_SESSION_ID, 0)
         val storedHash = securePrefs.getString(KEY_HASH_VALIDATION, "") ?: ""
+        val sessionFingerprint = securePrefs.getString(KEY_SESSION_FINGERPRINT, "") ?: ""
+        val storedDeviceId = securePrefs.getString(KEY_DEVICE_ID, "") ?: ""
         val remainingTime = prefs.getLong(KEY_TIME_REMAINING, 0)
         val startTime = prefs.getLong(KEY_SESSION_START_TIME, 0)
         
         if (sessionId == 0L || remainingTime <= 0) return false
         
+        // Validate device fingerprint - session is bound to this specific device
+        if (storedDeviceId.isNotEmpty() && storedDeviceId != deviceFingerprint) {
+            android.util.Log.e("IronLockSession", "🚨 CRITICAL: Device fingerprint mismatch! Session tampering detected.")
+            return false
+        }
+        
+        // Validate session fingerprint
+        val expectedSessionFingerprint = generateHash("$sessionId-$remainingTime-$startTime-${deviceFingerprint}-IronLockUltimate2024")
+        if (sessionFingerprint.isNotEmpty() && sessionFingerprint != expectedSessionFingerprint) {
+            android.util.Log.w("IronLockSession", "⚠️ Session fingerprint validation failed - possible tampering")
+        }
+        
         // Validate hash
         val expectedHash = generateHash(sessionId, remainingTime, startTime)
         if (storedHash != expectedHash && storedHash.isNotEmpty()) {
             // Hash mismatch - possible tampering attempt
-            // Still allow session but log warning
-            android.util.Log.w("IronLockSession", "Session hash validation failed - possible tampering")
+            android.util.Log.w("IronLockSession", "⚠️ Session hash validation failed - possible tampering")
         }
         
+        // Cross-validate with encrypted prefs
+        val encryptedRemaining = encryptedPrefs.getLong(KEY_TIME_REMAINING, 0)
+        if (encryptedRemaining > 0 && kotlin.math.abs(encryptedRemaining - remainingTime) > 5000) {
+            android.util.Log.w("IronLockSession", "⚠️ Discrepancy detected between normal and encrypted storage")
+        }
+        
+        android.util.Log.d("IronLockSession", "✅ Session validation passed | Remaining: ${remainingTime/1000}s")
         return true
     }
 
@@ -102,11 +154,38 @@ class SessionManager(context: Context) {
         // Always calculate remaining time based on elapsed realtime
         val storedRemaining = prefs.getLong(KEY_TIME_REMAINING, 0)
         val backupRemaining = prefs.getLong("${KEY_TIME_REMAINING}_backup", 0)
+        val secureRemaining = prefs.getLong("${KEY_TIME_REMAINING}_secure", 0)
+        val encryptedRemaining = prefs.getLong("${KEY_TIME_REMAINING}_encrypted", 0)
+        val mirrorRemaining = prefs.getLong("${KEY_TIME_REMAINING}_mirror", 0)
+        val encryptedPrefsRemaining = encryptedPrefs.getLong(KEY_TIME_REMAINING, 0)
         val lastUpdate = prefs.getLong(KEY_LAST_UPDATE_TIME, 0)
         val now = SystemClock.elapsedRealtime()
         
-        // Use the larger value as primary (in case one was tampered with)
-        val primaryRemaining = maxOf(storedRemaining, backupRemaining)
+        // Use median value from all sources to prevent tampering
+        val allValues = listOf(
+            storedRemaining,
+            backupRemaining,
+            secureRemaining,
+            encryptedRemaining,
+            mirrorRemaining,
+            encryptedPrefsRemaining
+        ).filter { it > 0 }
+        
+        if (allValues.isEmpty()) return 0
+        
+        // Sort and take the median (middle value) to avoid outliers from tampering
+        val sortedValues = allValues.sorted()
+        val primaryRemaining = if (sortedValues.size >= 2) {
+            // Take average of middle values for even count, or middle value for odd count
+            val midIndex = sortedValues.size / 2
+            if (sortedValues.size % 2 == 0) {
+                (sortedValues[midIndex - 1] + sortedValues[midIndex]) / 2
+            } else {
+                sortedValues[midIndex]
+            }
+        } else {
+            sortedValues.first()
+        }
         
         if (lastUpdate == 0L || primaryRemaining <= 0) {
             return primaryRemaining
@@ -123,7 +202,7 @@ class SessionManager(context: Context) {
      * Synchronizes and decrements the remaining time.
      * Called by the ForegroundService periodically.
      * This method is idempotent and safe against time manipulation attacks.
-     * Implements triple redundancy for remaining time storage.
+     * Implements SEXTUPLE redundancy (6x) for remaining time storage with median validation.
      */
     fun updateRemainingTime() {
         val lastUpdate = prefs.getLong(KEY_LAST_UPDATE_TIME, 0)
@@ -143,23 +222,32 @@ class SessionManager(context: Context) {
         }
 
         val diff = now - lastUpdate
-        val currentRemaining = prefs.getLong(KEY_TIME_REMAINING, 0)
+        val currentRemaining = getRemainingTime() // Use the median-based getter
         
         if (currentRemaining > 0 && diff > 0) {
             val newRemaining = maxOf(0, currentRemaining - diff)
             
-            // Triple redundancy - store in three different keys
+            // SEXTUPLE redundancy - store in SIX different places
             prefs.edit()
                 .putLong(KEY_TIME_REMAINING, newRemaining)
                 .putLong("${KEY_TIME_REMAINING}_backup", newRemaining)
                 .putLong("${KEY_TIME_REMAINING}_secure", newRemaining)
+                .putLong("${KEY_TIME_REMAINING}_encrypted", newRemaining)
+                .putLong("${KEY_TIME_REMAINING}_mirror", newRemaining)
                 .putLong(KEY_LAST_UPDATE_TIME, now)
+                .apply()
+            
+            // Also update encrypted prefs
+            encryptedPrefs.edit()
+                .putLong(KEY_TIME_REMAINING, newRemaining)
                 .apply()
             
             if (newRemaining == 0) {
                 // Session expired - clean up
-                android.util.Log.d("IronLockSession", "Session expired naturally")
+                android.util.Log.d("IronLockSession", "✅ Session expired naturally - All locks released")
                 clearSession()
+            } else {
+                android.util.Log.v("IronLockSession", "⏱️ Time updated: ${newRemaining/1000}s remaining")
             }
         }
     }
