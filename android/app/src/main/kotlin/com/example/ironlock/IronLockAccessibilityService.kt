@@ -8,6 +8,8 @@ import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.KeyEvent
+import android.os.Handler
+import android.os.Looper
 
 class IronLockAccessibilityService : AccessibilityService() {
     private lateinit var sessionManager: SessionManager
@@ -16,28 +18,36 @@ class IronLockAccessibilityService : AccessibilityService() {
     private var consecutiveBlockCount = 0
     private var lastBlockedPackage: String = ""
     private var blockTimestamp = 0L
+    private val handler = Handler(Looper.getMainLooper())
+    private var rapidAttemptCounter = mutableMapOf<String, Int>()
+    private val RAPID_ATTEMPT_THRESHOLD = 5
+    private val RAPID_ATTEMPT_WINDOW_MS = 3000L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         sessionManager = SessionManager(this)
         overlayController = BlockOverlayController(this)
         
-        // Configure for maximum protection
+        // Configure for MAXIMUM protection with all possible flags
         serviceInfo.apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or 
                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
                         AccessibilityEvent.TYPE_VIEW_CLICKED or
-                        AccessibilityEvent.TYPE_VIEW_FOCUSED
+                        AccessibilityEvent.TYPE_VIEW_FOCUSED or
+                        AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
+                        AccessibilityEvent.TYPE_WINDOWS_CHANGED
             feedbackType = AccessibilityService.FEEDBACK_GENERIC
             flags = (AccessibilityService.FLAG_DEFAULT or
                     AccessibilityService.FLAG_REPORT_VIEW_IDS or
                     AccessibilityService.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
                     AccessibilityService.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
-                    AccessibilityService.FLAG_REQUEST_FILTER_KEY_EVENTS)
+                    AccessibilityService.FLAG_REQUEST_FILTER_KEY_EVENTS or
+                    AccessibilityService.FLAG_REQUEST_TOUCH_EXPLORATION_MODE)
             notificationTimeout = 0
+            packageNames = emptyArray() // Monitor ALL packages
         }
         
-        Log.d(TAG, "Accessibility Service Connected with enhanced protection")
+        Log.d(TAG, "♾️ Accessibility Service Connected with ULTIMATE protection")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
