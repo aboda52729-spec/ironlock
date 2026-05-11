@@ -152,7 +152,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFFFF2E63).withValues(alpha: 0.3),
+                      const Color(0xFFFF2E63).withOpacity(0.3),
                       const Color(0xFF0A0A0F),
                     ],
                   ),
@@ -200,7 +200,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF08D9D6).withValues(alpha: 0.1),
+                color: const Color(0xFF08D9D6).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.emergency_rounded, color: Color(0xFF08D9D6), size: 24),
@@ -242,7 +242,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF2E63).withValues(alpha: 0.1),
+            color: const Color(0xFFFF2E63).withOpacity(0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -256,7 +256,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF2E63).withValues(alpha: 0.1),
+                  color: const Color(0xFFFF2E63).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.timer_outlined, color: Color(0xFFFF2E63), size: 24),
@@ -315,9 +315,9 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF08D9D6).withValues(alpha: 0.1),
+                  color: const Color(0xFF08D9D6).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF08D9D6).withValues(alpha: 0.3)),
+                  border: Border.all(color: const Color(0xFF08D9D6).withOpacity(0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -361,7 +361,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
           decoration: BoxDecoration(
             color: const Color(0xFF0A0A0F),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFFF2E63).withValues(alpha: 0.3)),
+            border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.3)),
           ),
           child: Listener(
             onPointerUp: (_) {
@@ -421,7 +421,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF252A34).withValues(alpha: 0.5),
+                color: const Color(0xFF252A34).withOpacity(0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.security_rounded, color: Color(0xFF08D9D6), size: 24),
@@ -469,8 +469,8 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
           gradient: isActive
               ? LinearGradient(
                   colors: [
-                    const Color(0xFFFF2E63).withValues(alpha: 0.2),
-                    const Color(0xFFFF2E63).withValues(alpha: 0.05),
+                    const Color(0xFFFF2E63).withOpacity(0.2),
+                    const Color(0xFFFF2E63).withOpacity(0.05),
                   ],
                 )
               : null,
@@ -483,7 +483,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
           boxShadow: isActive
               ? [
                   BoxShadow(
-                    color: const Color(0xFFFF2E63).withValues(alpha: 0.3),
+                    color: const Color(0xFFFF2E63).withOpacity(0.3),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                   ),
@@ -545,7 +545,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF252A34).withValues(alpha: 0.5),
+                color: const Color(0xFF252A34).withOpacity(0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.apps_rounded, color: Color(0xFF08D9D6), size: 24),
@@ -574,7 +574,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A2E),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFFF2E63).withValues(alpha: 0.3)),
+              border: Border.all(color: const Color(0xFFFF2E63).withOpacity(0.3)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -584,7 +584,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF2E63).withValues(alpha: 0.1),
+                        color: const Color(0xFFFF2E63).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(Icons.list_alt_rounded, color: Color(0xFFFF2E63), size: 22),
@@ -616,13 +616,13 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
         gradient: LinearGradient(
           colors: [
             const Color(0xFFFF2E63),
-            const Color(0xFFFF2E63).withValues(alpha: 0.8),
+            const Color(0xFFFF2E63).withOpacity(0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF2E63).withValues(alpha: 0.4),
+            color: const Color(0xFFFF2E63).withOpacity(0.4),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -633,7 +633,7 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
         child: InkWell(
           onTap: _isAnimating ? null : _startIronLock,
           borderRadius: BorderRadius.circular(20),
-          splashColor: Colors.white.withValues(alpha: 0.3),
+          splashColor: Colors.white.withOpacity(0.3),
           child: Center(
             child: _isAnimating
                 ? const SizedBox(
@@ -662,6 +662,6 @@ class _SetupScreenState extends State<SetupScreen> with SingleTickerProviderStat
           ),
         ),
       ),
-    ).animate().hover().scale(delay: 100.ms, duration: 200.ms);
+    ).animate().scale(delay: 100.ms, duration: 200.ms);
   }
 }
