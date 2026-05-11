@@ -11,14 +11,20 @@ class BootReceiver : BroadcastReceiver() {
             val sessionManager = SessionManager(context)
             Log.d("IronLockBoot", "Device Booted. Checking active session...")
             
+            // Check if there's an active session after boot
             if (sessionManager.isSessionActive()) {
                 Log.d("IronLockBoot", "Active session found! Restarting Foreground Services.")
+                
+                // Start the foreground service to resume session monitoring
                 val serviceIntent = Intent(context, IronLockForegroundService::class.java)
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                     context.startForegroundService(serviceIntent)
                 } else {
                     context.startService(serviceIntent)
                 }
+                
+                // Also restart accessibility service check
+                Log.d("IronLockBoot", "Session will continue with remaining time: ${sessionManager.getRemainingTime()} ms")
             } else {
                 Log.d("IronLockBoot", "No active session.")
             }
