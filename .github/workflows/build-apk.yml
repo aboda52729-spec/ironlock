@@ -30,6 +30,10 @@ jobs:
         with:
           channel: 'stable'
           flutter-version: '3.24.0'
+          cache: true
+
+      - name: Check Flutter version
+        run: flutter --version
 
       - name: Get Flutter Packages
         run: flutter pub get
