@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="accessibility_service_description">IronLock requires Accessibility Service to monitor the foreground app and block distractions during focus sessions.</string>
+    <string name="accessibility_service_description">IronLock يحتاج إلى خدمة إمكانية الوصول لمراقبة التطبيقات المفتوحة وحظرها خلال جلسات التركيز.
+
+الميزات الأمنية:
+• منع إلغاء تثبيت التطبيق أثناء الجلسة
+• حظر الوصول إلى إعدادات النظام الحساسة
+• منع تغيير الوقت والتاريخ
+• حظر خيارات المطور وتصحيح USB
+• قفل الشاشة فوراً في وضع القفل الكامل
+• البقاء نشطاً بعد إعادة تشغيل الجهاز
+
+لا يمكن تعطيل هذه الخدمة حتى تنتهي جلسة التركيز.</string>
+    
+    <string name="app_name">IronLock - قفل التركيز</string>
+    <string name="device_admin_description">IronLock يحتاج صلاحيات مسؤول الجهاز لقفل الشاشة فعلياً ومنع التغييرات الأمنية خلال جلسة التركيز.</string>
 </resources>
