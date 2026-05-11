@@ -141,7 +141,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with SingleTi
                 end: Alignment.bottomCenter,
                 colors: [
                   const Color(0xFF0F0F1A),
-                  const Color(0xFF1A0000).withOpacity(0.3),
+                  const Color(0xFF1A0000).withValues(alpha: 0.3),
                   const Color(0xFF0D0D0D),
                 ],
                 stops: const [0.0, 0.5, 1.0],
@@ -161,8 +161,8 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with SingleTi
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            const Color(0xFFE50914).withOpacity(0.2),
-                            const Color(0xFFE50914).withOpacity(0.05),
+                            const Color(0xFFE50914).withValues(alpha: 0.2),
+                            const Color(0xFFE50914).withValues(alpha: 0.05),
                             Colors.transparent,
                           ],
                         ),
@@ -172,8 +172,8 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with SingleTi
                         size: 120,
                         color: const Color(0xFFE50914),
                         shadows: [
-                          BoxShadow(
-                            color: const Color(0xFFE50914).withOpacity(0.6),
+                          Shadow(
+                            color: const Color(0xFFE50914).withValues(alpha: 0.6),
                             blurRadius: 40,
                             spreadRadius: 10,
                           ),
@@ -211,12 +211,12 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with SingleTi
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: const Color(0xFFE50914).withOpacity(0.3),
+                            color: const Color(0xFFE50914).withValues(alpha: 0.3),
                             width: 2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFE50914).withOpacity(0.2),
+                              color: const Color(0xFFE50914).withValues(alpha: 0.2),
                               blurRadius: 30,
                               spreadRadius: 5,
                             ),
@@ -231,12 +231,12 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with SingleTi
                             fontWeight: FontWeight.w900,
                             letterSpacing: 4,
                             shadows: [
-                            BoxShadow(
+                              Shadow(
                                 color: Color(0xFFE50914),
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               ),
-                            BoxShadow(
+                              Shadow(
                                 color: Colors.red,
                                 blurRadius: 40,
                                 spreadRadius: 5,
@@ -258,18 +258,18 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with SingleTi
                       borderRadius: BorderRadius.circular(16),
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF1A1A2E).withOpacity(0.8),
-                          const Color(0xFF252A34).withOpacity(0.8),
+                          const Color(0xFF1A1A2E).withValues(alpha: 0.8),
+                          const Color(0xFF252A34).withValues(alpha: 0.8),
                         ],
                       ),
                       border: Border.all(
-                        color: const Color(0xFFE50914).withOpacity(0.3),
+                        color: const Color(0xFFE50914).withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.security, color: const Color(0xFFE50914), size: 32),
+                        Icon(Icons.shield_lock_rounded, color: const Color(0xFFE50914), size: 32),
                         const SizedBox(width: 16),
                         Expanded(
                           child: const Text(
@@ -304,8 +304,8 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with SingleTi
                               borderRadius: BorderRadius.circular(16),
                               gradient: LinearGradient(
                                 colors: [
-                                  const Color(0xFFE50914).withOpacity(0.2),
-                                  const Color(0xFFE50914).withOpacity(0.1),
+                                  const Color(0xFFE50914).withValues(alpha: 0.2),
+                                  const Color(0xFFE50914).withValues(alpha: 0.1),
                                 ],
                               ),
                               border: Border.all(
@@ -351,7 +351,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with SingleTi
                                 color: const Color(0xFFE50914),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFE50914).withOpacity(0.6),
+                                    color: const Color(0xFFE50914).withValues(alpha: 0.6),
                                     blurRadius: 10 * _pulseAnimation.value,
                                     spreadRadius: 2 * _pulseAnimation.value,
                                   ),

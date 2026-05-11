@@ -114,7 +114,7 @@ class IronLockApp extends StatelessWidget {
             bodyMedium: TextStyle(fontSize: 14, color: Colors.white70),
           ),
         ),
-        cardTheme: CardThemeData(
+        cardTheme: CardTheme(
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           color: const Color(0xFF1A1A2E),
