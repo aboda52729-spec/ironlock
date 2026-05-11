@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
@@ -20,9 +21,11 @@ class IronLockForegroundService : Service() {
     private lateinit var sessionManager: SessionManager
     private var screenUnlockReceiver: ScreenUnlockReceiver? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var wakeLock: PowerManager.WakeLock? = null
     
-    // Faster initial check and more frequent updates for better accuracy
-    private val UPDATE_INTERVAL_MS = 500L // Update every 500ms for precision
+    // Ultra-fast initial check and frequent updates for maximum accuracy
+    private val UPDATE_INTERVAL_MS = 250L // Update every 250ms for precision
+    private val TAG = "IronLockForegroundService"
     
     private val checkRunnable = object : Runnable {
         override fun run() {
@@ -30,8 +33,10 @@ class IronLockForegroundService : Service() {
                 sessionManager.updateRemainingTime()
                 
                 if (!sessionManager.isSessionActive()) {
-                    Log.d("IronLockService", "Session expired. Stopping foreground service.")
+                    Log.d(TAG, "✅ Session expired naturally. Stopping foreground service.")
                     unregisterScreenReceiver()
+                    releaseWakeLock()
+                    
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                         stopForeground(STOP_FOREGROUND_REMOVE)
                     } else {
@@ -39,11 +44,17 @@ class IronLockForegroundService : Service() {
                     }
                     stopSelf()
                 } else {
-                    // Continue checking
+                    // Continue checking with high frequency
                     handler.postDelayed(this, UPDATE_INTERVAL_MS)
+                    
+                    // Update notification every 5 seconds to show accurate time
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime % 5000 < UPDATE_INTERVAL_MS) {
+                        updateNotification()
+                    }
                 }
             } catch (e: Exception) {
-                Log.e("IronLockService", "Error in checkRunnable", e)
+                Log.e(TAG, "❌ Error in checkRunnable: ${e.message}", e)
                 // Continue anyway to prevent service crash
                 handler.postDelayed(this, UPDATE_INTERVAL_MS)
             }
@@ -54,11 +65,19 @@ class IronLockForegroundService : Service() {
         super.onCreate()
         sessionManager = SessionManager(this)
         createNotificationChannel()
-        Log.d("IronLockService", "Service created")
+        acquireWakeLock()
+        
+        // Increment boot count if this is after a reboot
+        if (sessionManager.isSessionActive()) {
+            sessionManager.incrementBootCount()
+            Log.d(TAG, "📊 Boot count incremented: ${sessionManager.getBootCount()}")
+        }
+        
+        Log.d(TAG, "✅ Foreground Service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("IronLockService", "Service started with isFullLockMode=${sessionManager.isFullLockMode()}")
+        Log.d(TAG, "🔒 Service started - FullLockMode=${sessionManager.isFullLockMode()}")
         
         val notification: Notification = buildNotification()
         
@@ -76,24 +95,37 @@ class IronLockForegroundService : Service() {
         // Start the update loop immediately
         handler.post(checkRunnable)
         
-        // Return START_STICKY to ensure service restarts if killed
+        // Return START_STICKY to ensure service restarts if killed by system
         return START_STICKY
     }
     
     private fun buildNotification(): Notification {
         val remainingTime = sessionManager.getRemainingTime()
         val timeText = formatTime(remainingTime)
+        val isFullLock = sessionManager.isFullLockMode()
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("IronLock - جلسة نشطة")
-            .setContentText("الوقت المتبقي: $timeText | لا يمكن إيقاف القفل")
+            .setContentTitle("🔒 IronLock - جلسة نشطة")
+            .setContentText(if (isFullLock) 
+                "⏱️ الوقت المتبقي: $timeText | قفل كامل مفعل" 
+                else "⏱️ الوقت المتبقي: $timeText | تطبيقات محددة مقفلة")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setOnlyAlertOnce(true)
+            .setTicker("IronLock: جلسة التركيز نشطة")
             .build()
+    }
+    
+    private fun updateNotification() {
+        try {
+            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(1, buildNotification())
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to update notification: ${e.message}")
+        }
     }
     
     private fun formatTime(millis: Long): String {
@@ -117,7 +149,7 @@ class IronLockForegroundService : Service() {
             } else {
                 registerReceiver(screenUnlockReceiver, filter)
             }
-            Log.d("IronLockService", "ScreenUnlockReceiver registered")
+            Log.d(TAG, "📡 ScreenUnlockReceiver registered")
         }
     }
 
@@ -125,11 +157,40 @@ class IronLockForegroundService : Service() {
         screenUnlockReceiver?.let {
             try {
                 unregisterReceiver(it)
-                Log.d("IronLockService", "ScreenUnlockReceiver unregistered")
+                Log.d(TAG, "📡 ScreenUnlockReceiver unregistered")
             } catch (e: Exception) {
-                Log.w("IronLockService", "Receiver already unregistered or error: ${e.message}")
+                Log.w(TAG, "Receiver already unregistered or error: ${e.message}")
             }
             screenUnlockReceiver = null
+        }
+    }
+    
+    private fun acquireWakeLock() {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "IronLock::SessionWakeLock"
+            ).apply {
+                acquire(10*60*1000L /*10 minutes*/) // Timeout to prevent battery drain
+            }
+            Log.d(TAG, "⚡ WakeLock acquired")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
+        }
+    }
+    
+    private fun releaseWakeLock() {
+        try {
+            wakeLock?.let {
+                if (it.isHeld) {
+                    it.release()
+                    Log.d(TAG, "⚡ WakeLock released")
+                }
+            }
+            wakeLock = null
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to release WakeLock: ${e.message}")
         }
     }
 
@@ -137,12 +198,27 @@ class IronLockForegroundService : Service() {
         super.onDestroy()
         handler.removeCallbacks(checkRunnable)
         unregisterScreenReceiver()
-        Log.d("IronLockService", "Service destroyed")
+        releaseWakeLock()
+        Log.d(TAG, "🛑 Service destroyed")
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         // Service should continue running even if app is removed from recents
-        Log.d("IronLockService", "Task removed but service continues")
+        Log.d(TAG, "📱 Task removed but service continues running")
+        
+        // Restart service to ensure it keeps running
+        try {
+            val restartServiceIntent = Intent(applicationContext, this.javaClass)
+            restartServiceIntent.setPackage(packageName)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(restartServiceIntent)
+            } else {
+                startService(restartServiceIntent)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to restart service: ${e.message}")
+        }
+        
         super.onTaskRemoved(rootIntent)
     }
 
@@ -157,10 +233,11 @@ class IronLockForegroundService : Service() {
                 "خدمة IronLock",
                 NotificationManager.IMPORTANCE_LOW // Low importance to minimize disruption
             ).apply {
-                description = "خدمة تعمل في الخلفية للحفاظ على جلسة التركيز"
+                description = "خدمة تعمل في الخلفية للحفاظ على جلسة التركيز ومنع التلاعب"
                 setShowBadge(false)
                 enableVibration(false)
                 enableLights(false)
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
